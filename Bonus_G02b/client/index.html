@@ -1,19 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Teacher Share – Browser Mirror</title>
-<style>
-body{font-family:sans-serif;text-align:center;margin:2em;}
-video,canvas{border:1px solid #888;max-width:90%;}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teacher Share - Browser Mirror</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 2rem;
+    }
+
+    video {
+      border: 1px solid #888;
+      max-width: 90%;
+      margin-top: 1rem;
+    }
+
+    #status {
+      color: #444;
+      margin-top: 0.75rem;
+    }
+  </style>
 </head>
 <body>
-<h1>Browser Window Mirror – Teacher</h1>
-<button id="btn">Start Sharing Window</button><br/><br/>
+  <h1>Browser Window Mirror - Teacher</h1>
+  <button id="btn">Start Sharing Window</button>
+  <p id="status"></p>
+  <video id="preview" autoplay muted playsinline></video>
 
-<video id="preview" autoplay muted></video>
-
-<script src="app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

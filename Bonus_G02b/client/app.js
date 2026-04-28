@@ -1,68 +1,116 @@
-const btn     = document.getElementById("btn");
-const recBtn  = document.createElement("button");  // tombol rekam
-recBtn.textContent = "Start Recording";
-document.body.insertBefore(recBtn, btn.nextSibling);
+const btn = document.getElementById("btn");
+const statusEl = document.getElementById("status");
 const preview = document.getElementById("preview");
-let stream, canvas, ctx, intervalID;
-let recorder, chunks = [];
 
+let stream = null;
+let canvas = null;
+let ctx = null;
+let intervalId = null;
+let uploadInFlight = false;
 
-async function start() {
-  stream = await navigator.mediaDevices.getDisplayMedia({video: true});
-  preview.srcObject = stream;
+function setStatus(message) {
+  statusEl.textContent = message;
+}
 
-  canvas = document.createElement("canvas");
-  canvas.width  = stream.getVideoTracks()[0].getSettings().width;
-  canvas.height = stream.getVideoTracks()[0].getSettings().height;
-  ctx = canvas.getContext("2d");
+function computeCanvasSize(width, height) {
+  const maxWidth = 1280;
+  if (!width || !height || width <= maxWidth) {
+    return { width, height };
+  }
 
-  intervalID = setInterval(captureAndSend, 1000/8); // 8 FPS
-  btn.textContent = "Stop Sharing";
-
-  recBtn.disabled  = false;           // baru boleh merekam kalau sudah share
-
-  // --- siapkan MediaRecorder --------------------------------------------
-  recorder = new MediaRecorder(stream, {mimeType:"video/webm"});
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.onstop = () => {
-      const blob = new Blob(chunks, {type:"video/webm"});
-      const url  = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `recording-${Date.now()}.webm`;
-      a.click();
-      chunks = [];
+  const scale = maxWidth / width;
+  return {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
   };
 }
-function stop() {
-  clearInterval(intervalID);
-  stream.getTracks().forEach(t => t.stop());
-  btn.textContent = "Start Sharing Window";
-  recBtn.textContent = "Start Recording";
-  recBtn.disabled = true;
-  if (recorder?.state === "recording") recorder.stop();
+
+async function start() {
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    preview.srcObject = stream;
+
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const size = computeCanvasSize(settings.width || 1280, settings.height || 720);
+
+    canvas = document.createElement("canvas");
+    canvas.width = size.width;
+    canvas.height = size.height;
+    ctx = canvas.getContext("2d");
+
+    track.addEventListener("ended", stop, { once: true });
+
+    intervalId = window.setInterval(captureAndSend, 1000 / 8);
+    btn.textContent = "Stop Sharing Window";
+    setStatus(`Sharing ${canvas.width}x${canvas.height} at target 8 FPS`);
+  } catch (err) {
+    console.error(err);
+    stop();
+    setStatus("Sharing cancelled or blocked by browser.");
+  }
 }
 
-btn.onclick = () => (intervalID ? stop() : start());
-recBtn.onclick = () => {
-    if (recorder.state === "inactive"){
-        recorder.start();
-        recBtn.textContent = "Stop Recording";
-    }else{
-        recorder.stop();
-    }
+function stop() {
+  if (intervalId !== null) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+
+  uploadInFlight = false;
+  if (stream) {
+    stream.getTracks().forEach((track) => track.stop());
+  }
+  stream = null;
+  preview.srcObject = null;
+  btn.textContent = "Start Sharing Window";
+  setStatus("Not sharing");
+}
+
+btn.onclick = () => {
+  if (intervalId !== null) {
+    stop();
+    return;
+  }
+  start();
 };
-recBtn.disabled = true;
 
 async function captureAndSend() {
+  if (!ctx || !canvas || !stream || uploadInFlight) {
+    return;
+  }
+
+  uploadInFlight = true;
   ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
-  canvas.toBlob(async blob => {
-    if (!blob) return;
-    try {
-      await fetch("/upload-frame", {method:"POST", body:blob});
-    } catch(err) {
-      console.error(err);
-      stop();
+
+  canvas.toBlob(async (blob) => {
+    if (!blob) {
+      uploadInFlight = false;
+      return;
     }
-  }, "image/jpeg", 0.75);
+
+    try {
+      const response = await fetch("/upload-frame", {
+        method: "POST",
+        body: blob,
+      });
+
+      if (!response.ok) {
+        console.error("Upload failed with status", response.status);
+        if (response.status === 413) {
+          setStatus("Frame too large for server limit (100000 bytes).");
+        } else {
+          setStatus(`Upload failed: HTTP ${response.status}`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus("Upload failed. Stopping sharing.");
+      stop();
+    } finally {
+      uploadInFlight = false;
+    }
+  }, "image/jpeg", 0.6);
 }
+
+setStatus("Not sharing");
