@@ -23,4 +23,16 @@ async function updateFrame() {
     setTimeout(updateFrame, 125); 
 }
 
+async function updateStats() {
+    try {
+        const response = await fetch('/stats');
+        const data = await response.json();
+        statsDiv.textContent = `FPS: ${data.fps} | Camera: ${data.active_camera} | Frames: ${data.frames_served}`;
+    } catch (err) {
+        console.error("Failed to fetch stats:", err);
+    }
+    setTimeout(updateStats, 1000); // Update every 1 second
+}
+
 updateFrame();
+updateStats();
