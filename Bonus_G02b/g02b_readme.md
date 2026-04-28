@@ -591,8 +591,15 @@ Kekurangan UDP:
 Karena itu, program menggunakan `frame_id`, `chunk_id`, dan `total_chunks` agar receiver bisa menyusun ulang frame yang terpecah.
 
 ---
+## Screenshot Hasil
 
-## 8. Kesimpulan
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/58b1ff53-15a2-41b1-be53-7df240390b51" />
+
+<img width="2035" height="549" alt="image" src="https://github.com/user-attachments/assets/287633a8-e2cd-4b97-98a4-55070fd23427" />
+
+
+
+## Kesimpulan
 
 Program ini merupakan implementasi sederhana dari sistem mirroring tampilan layar menggunakan kombinasi HTTP dan UDP broadcast. Browser bertugas menangkap tampilan layar dan mengirim frame ke HTTP server. Server menyimpan frame terbaru. UDP sender mengambil frame dari server dan mengirimkannya dalam bentuk paket-paket UDP broadcast. UDP receiver menerima paket, menyusun ulang frame, lalu menampilkannya menggunakan OpenCV.
 
